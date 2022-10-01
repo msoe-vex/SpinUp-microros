@@ -1,0 +1,19 @@
+version: '3.3'
+services:
+  microros_pros_builder:
+    container_name: microros_pros_builder
+    image: ghcr.io/msoe-vex/microros_pros_builder:main
+    volumes:
+      - './microros_include:/uros_ws/pros_include'
+      - './firmware:/uros_ws/pros_firmware'
+      - 'microros_firmware:/uros_ws/build'
+      - type: bind
+        source: ./v5_colcon.meta
+        target: /v5_colcon.meta
+      - type: bind
+        source: ./v5_toolchain.cmake
+        target: /v5_toolchain.cmake
+    privileged: true
+    network_mode: "host"
+volumes:
+  microros_firmware:
