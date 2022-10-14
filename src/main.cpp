@@ -32,14 +32,14 @@ std_msgs__msg__Int32 msg;
 
 void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
 {
-    pros::lcd::set_text(3, "why");
+    pros::lcd::set_text(0, "why");
 	RCLC_UNUSED(last_call_time);
 	if (timer != NULL) {
         //pros::lcd::set_text(0, std::to_string(msg.data));
 		RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
 		msg.data++;
     }
-    pros::lcd::set_text(3, "why part 2 electric boogaloo");
+    //pros::lcd::set_text(3, "why part 2 electric boogaloo");
 
 }
 
@@ -67,7 +67,7 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
  */
 void initialize() {
 	pros::lcd::initialize();
-	pros::lcd::set_text(0, PROS_VERSION_STRING);
+	//pros::lcd::set_text(0, PROS_VERSION_STRING);
 
 	//pros::lcd::register_btn1_cb(on_center_button);
 }
@@ -147,6 +147,16 @@ void opcontrol() {
 
     // create init_options
 	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+	
+	// Sync timeout
+	const int timeout_ms = 1000;
+
+	// Synchronize time with the agent
+	rmw_uros_sync_session(timeout_ms);
+	
+	if (rmw_uros_epoch_synchronized()) {
+		pros::lcd::set_text(1, "timer initted");
+	}
 
     // create node
 	RCCHECK(rclc_node_init_default(&node, "freertos_int32_publisher", "", &support));
@@ -175,10 +185,10 @@ void opcontrol() {
 
     std::uint32_t now = pros::millis();
 	while (true) {
-        //RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
+        RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
         pros::lcd::set_text(2, std::to_string(msg.data));
-	    pros::lcd::set_text(1, "returns" + std::to_string(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100))));
-        pros::Task::delay_until(&now, 10);
+	    //rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
+        pros::Task::delay_until(&now, 100);
         msg.data++;
 	}
 
