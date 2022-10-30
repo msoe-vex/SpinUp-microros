@@ -189,7 +189,7 @@ void opcontrol() {
 	}
 
     // create node
-	//node = rcl_get_zero_initialized_node();
+	node = rcl_get_zero_initialized_node();
 	RCCHECK(rclc_node_init_default(&node, "main_node", "", &support));
 
     /*timer = rcl_get_zero_initialized_timer();
@@ -203,18 +203,13 @@ void opcontrol() {
 	
 	// create publisher
 	//publisher = rcl_get_zero_initialized_publisher();
-	RCCHECK(rclc_publisher_init_best_effort(
-		&publisher,
-		&node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Joy),
-		"joy_publisher"));
 
-	//std_msgs__msg__String__init(&sub_msg);
-	//executor = rclc_executor_get_zero_initialized_executor();
-	//RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
-	//subscriber = rcl_get_zero_initialized_subscription();
+	std_msgs__msg__String__init(&sub_msg);
+	executor = rclc_executor_get_zero_initialized_executor();
+	RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+	subscriber = rcl_get_zero_initialized_subscription();
 
-	/*RCCHECK(rclc_subscription_init_best_effort(
+	RCCHECK(rclc_subscription_init_best_effort(
 		&subscriber,
 		&node,
 		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String),
@@ -225,8 +220,16 @@ void opcontrol() {
 		&subscriber,
 		&sub_msg,
 		&subscription_callback,
-		ON_NEW_DATA));*/
+		ON_NEW_DATA));
+	
+	pros::delay(20);
 	//RCCHECK(rclc_executor_add_timer(&executor, &timer));
+	publisher = rcl_get_zero_initialized_publisher();
+	RCCHECK(rclc_publisher_init_best_effort(
+		&publisher,
+		&node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Joy),
+		"joy_publisher"));
 	
     //RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
 
