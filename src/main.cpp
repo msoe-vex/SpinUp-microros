@@ -8,8 +8,11 @@
 
 #include "rmw_microros/rmw_microros.h"
 
+#include "micro_ros_utilities/type_utilities.h"
+
 #include "std_msgs/msg/header.h"
-#include "std_msgs/msg/int32.h"
+#include "std_msgs/msg/string.h"
+#include "sensor_msgs/msg/joy.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -28,20 +31,9 @@ extern "C" size_t v5_serial_read(struct uxrCustomTransport* transport, uint8_t* 
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){pros::lcd::print(1, "Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
 
 rcl_publisher_t publisher;
-std_msgs__msg__Int32 msg;
-
-void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
-{
-    pros::lcd::set_text(0, "why");
-	RCLC_UNUSED(last_call_time);
-	if (timer != NULL) {
-        //pros::lcd::set_text(0, std::to_string(msg.data));
-		RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
-		msg.data++;
-    }
-    //pros::lcd::set_text(3, "why part 2 electric boogaloo");
-
-}
+rcl_subscription_t subscriber;
+sensor_msgs__msg__Joy msg;
+std_msgs__msg__String sub_msg;
 
 /**
  * A callback function for LLEMU's center button.
@@ -67,6 +59,10 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
  */
 void initialize() {
 	pros::lcd::initialize();
+	msg.axes.capacity = 4;
+	msg.axes.data = (float*) malloc(msg.axes.capacity * sizeof(float));
+	msg.buttons.capacity = 12;
+	msg.buttons.data = (int32_t*) malloc(msg.buttons.capacity * sizeof(int32_t));
 	//pros::lcd::set_text(0, PROS_VERSION_STRING);
 
 	//pros::lcd::register_btn1_cb(on_center_button);
@@ -103,14 +99,6 @@ void competition_initialize() {}
  */
 void autonomous() {}
 
-void setup_controller() {
-    pros::Controller master (pros::E_CONTROLLER_MASTER);
-    int32_t analog_left_x = master.get_analog(ANALOG_LEFT_X);
-    int32_t analog_left_y = master.get_analog(ANALOG_LEFT_Y);
-    int32_t analog_right_x = master.get_analog(ANALOG_RIGHT_X);
-    int32_t analog_right_y = master.get_analog(ANALOG_RIGHT_Y);
-}
-
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -125,6 +113,45 @@ void setup_controller() {
  * task, not resume it from where it left off.
  */
 
+void create_joy_message() {
+	msg.axes.data[0] = (float) pros::c::controller_get_analog(CONTROLLER_MASTER, pros::E_CONTROLLER_ANALOG_LEFT_X);
+	msg.axes.data[1] = (float) pros::c::controller_get_analog(CONTROLLER_MASTER, pros::E_CONTROLLER_ANALOG_LEFT_Y);
+	msg.axes.data[2] = (float) pros::c::controller_get_analog(CONTROLLER_MASTER, pros::E_CONTROLLER_ANALOG_RIGHT_X);
+	msg.axes.data[3] = (float) pros::c::controller_get_analog(CONTROLLER_MASTER, pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+	msg.axes.size = 4;
+	
+	msg.buttons.data[0] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_LEFT);
+	msg.buttons.data[1] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_DOWN);
+	msg.buttons.data[2] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_UP);
+	msg.buttons.data[3] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_RIGHT);
+	
+	msg.buttons.data[4] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_A);
+	msg.buttons.data[5] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_B);
+	msg.buttons.data[6] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_X);
+	msg.buttons.data[7] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_Y);
+	
+	msg.buttons.data[8] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_L1);
+	msg.buttons.data[9] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_L2);
+	msg.buttons.data[10] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_R1);
+	msg.buttons.data[11] = pros::c::controller_get_digital(CONTROLLER_MASTER, DIGITAL_R2);
+	msg.buttons.size = 12;
+	
+	struct timespec tp;
+	clock_gettime(CLOCK_MONOTONIC, &tp);
+	
+	msg.header.stamp.nanosec = (int32_t) tp.tv_nsec;
+	msg.header.stamp.sec = (int32_t) tp.tv_sec;
+}
+
+void subscription_callback(const void * msgin) {
+  // Cast received message to used type
+  const std_msgs__msg__String * msg = (const std_msgs__msg__String *)msgin;
+
+  // Process message
+  //pros::delay(20);
+  //pros::lcd::print(4, "Received: %d\n", msg->data);
+}
+
 rcl_allocator_t allocator;
 rclc_support_t support;
 rcl_node_t node;
@@ -132,8 +159,7 @@ rcl_timer_t timer;
 rclc_executor_t executor;
 
 void opcontrol() {
-	pros::lcd::set_text(2, "test123");
-    
+	pros::delay(20);
     allocator = rcl_get_default_allocator();
 
     rmw_uros_set_custom_transport(
@@ -155,62 +181,65 @@ void opcontrol() {
 	rmw_uros_sync_session(timeout_ms);
 	
 	if (rmw_uros_epoch_synchronized()) {
-		pros::lcd::set_text(1, "timer initted");
+		struct timespec ts;
+		ts.tv_sec = rmw_uros_epoch_millis()/1000;
+		ts.tv_nsec = rmw_uros_epoch_nanos();
+		clock_settime(CLOCK_REALTIME, &ts);
+		pros::lcd::set_text(6, "timer initted");
 	}
 
     // create node
-	RCCHECK(rclc_node_init_default(&node, "freertos_int32_publisher", "", &support));
+	//node = rcl_get_zero_initialized_node();
+	RCCHECK(rclc_node_init_default(&node, "main_node", "", &support));
 
-	// create publisher
-	RCCHECK(rclc_publisher_init_best_effort(
-		&publisher,
-		&node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-		"freertos_int32_publisher"));
-
-    timer = rcl_get_zero_initialized_timer();
+    /*timer = rcl_get_zero_initialized_timer();
 	// create timer,
 	const unsigned int timer_timeout = 1000;
 	RCCHECK(rclc_timer_init_default(
 		&timer,
 		&support,
 		RCL_MS_TO_NS(timer_timeout),
-		timer_callback));
+		timer_callback));*/
+	
+	// create publisher
+	//publisher = rcl_get_zero_initialized_publisher();
+	RCCHECK(rclc_publisher_init_best_effort(
+		&publisher,
+		&node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Joy),
+		"joy_publisher"));
 
-	// create executor
-	RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
-	RCCHECK(rclc_executor_add_timer(&executor, &timer));
+	//std_msgs__msg__String__init(&sub_msg);
+	//executor = rclc_executor_get_zero_initialized_executor();
+	//RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+	//subscriber = rcl_get_zero_initialized_subscription();
 
-    msg.data = 0;
+	/*RCCHECK(rclc_subscription_init_best_effort(
+		&subscriber,
+		&node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String),
+		"chatter"));
+	
+	RCCHECK(rclc_executor_add_subscription(
+		&executor,
+		&subscriber,
+		&sub_msg,
+		&subscription_callback,
+		ON_NEW_DATA));*/
+	//RCCHECK(rclc_executor_add_timer(&executor, &timer));
+	
+    //RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
 
     std::uint32_t now = pros::millis();
 	while (true) {
-        RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
-        pros::lcd::set_text(2, std::to_string(msg.data));
-	    //rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
-        pros::Task::delay_until(&now, 100);
-        msg.data++;
+		create_joy_message();
+		RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
+	    //RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(5000)));
+		pros::Task::delay_until(&now, 20);
 	}
 
 	// free resources
 	//RCCHECK(rcl_publisher_fini(&publisher, &node))
 	//RCCHECK(rcl_node_fini(&node))
-    pros::lcd::set_text(2, "huh?");
 
-
-	/*pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::Motor left_mtr(1);
-	pros::Motor right_mtr(2);
-
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
-		int left = master.get_analog(ANALOG_LEFT_Y);
-		int right = master.get_analog(ANALOG_RIGHT_Y);
-
-		left_mtr = left;
-		right_mtr = right;
-		pros::delay(20);
-	}*/
 }
