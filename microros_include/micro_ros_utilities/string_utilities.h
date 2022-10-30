@@ -24,8 +24,8 @@ extern "C"
 {
 #endif  // if __cplusplus
 
-#include <rosidl_runtime_c/string.h>
-#include <micro_ros_utilities/visibility_control.h>
+#include "rosidl_runtime_c/string.h"
+#include "micro_ros_utilities/visibility_control.h"
 
 /** \addtogroup stringutils micro-ROS String Utilities
  *  @{

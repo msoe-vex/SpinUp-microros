@@ -36,8 +36,8 @@ extern "C"
 #include "rcl_interfaces/srv/set_parameters.h"
 #include "rcl_interfaces/srv/describe_parameters.h"
 #include "rcl_interfaces/msg/parameter_descriptor.h"
-#include <rosidl_runtime_c/string_functions.h>
-#include <rosidl_runtime_c/primitives_sequence_functions.h>
+#include "rosidl_runtime_c/string_functions.h"
+#include "rosidl_runtime_c/primitives_sequence_functions.h"
 
 #include "rclc_parameter/visibility_control.h"
 

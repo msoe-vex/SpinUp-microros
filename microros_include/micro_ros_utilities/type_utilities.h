@@ -24,10 +24,10 @@ extern "C"
 {
 #endif  // if __cplusplus
 
-#include <rosidl_typesupport_introspection_c/message_introspection.h>
-#include <rosidl_runtime_c/string.h>
+#include "rosidl_typesupport_introspection_c/message_introspection.h"
+#include "rosidl_runtime_c/string.h"
 #include "rcutils/allocator.h"
-#include <micro_ros_utilities/visibility_control.h>
+#include "micro_ros_utilities/visibility_control.h"
 
 /** \addtogroup typeutils micro-ROS Types Utilities
  *  @{
